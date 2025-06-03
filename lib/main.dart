@@ -35,6 +35,7 @@ class MyApp extends StatelessWidget {
         '/main_page': (context) => const MainPage(),
         '/search': (context) => const SearchPage(),
         '/settings': (context) => const SettingsPage(),
+        '/filter': (context) => const MainPage(), // 또는 별도 페이지
       },
     );
   }
