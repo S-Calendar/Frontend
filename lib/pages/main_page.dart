@@ -1,4 +1,3 @@
-// pages/main_page.dart
 import 'package:flutter/material.dart';
 import '../widgets/custom_calendar.dart';
 import '../models/notice.dart';
@@ -18,6 +17,7 @@ class _MainPageState extends State<MainPage> {
   late int _selectedIndex;
   late int _todayIndex;
   late List<Notice> allNotices = [];
+  Set<String> _selectedCategories = {}; // ✅ 필터 선택 카테고리
 
   @override
   void initState() {
@@ -26,21 +26,94 @@ class _MainPageState extends State<MainPage> {
     _todayIndex = (today.year - baseYear) * 12 + (today.month - 1);
     _selectedIndex = _todayIndex;
     _pageController = PageController(initialPage: _todayIndex);
-
     _loadNotices();
   }
 
   Future<void> _loadNotices() async {
     final notices = await NoticeData.loadNoticesFromFirestore();
     setState(() {
-      allNotices = notices.where((n) => !n.isHidden).toList(); // 숨김 공지 제외
+      _applyCategoryFilter(notices);
     });
   }
 
-  // 관심 목록 페이지 등에서 돌아올 때 새로 고침 용
+  void _applyCategoryFilter(List<Notice> notices) {
+    if (_selectedCategories.isEmpty) {
+      allNotices = notices.where((n) => !n.isHidden).toList();
+    } else {
+      allNotices = notices.where((n) =>
+          _selectedCategories.contains(_convertCategory(n.color)) &&
+          !n.isHidden).toList();
+    }
+  }
+
+  String _convertCategory(Color color) {
+    if (color == const Color(0x83FFABAB)) return 'ai학과공지';
+    if (color == const Color(0x83ABC9FF)) return '학사공지';
+    if (color == const Color(0x83A5FAA5)) return '취업공지';
+    return '기타';
+  }
+
   Future<void> _navigateAndRefresh(String routeName) async {
     await Navigator.pushNamed(context, routeName);
     await _loadNotices();
+  }
+
+  void _showCategoryFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          contentPadding: const EdgeInsets.all(20),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '카테고리 별로 확인하기',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildCheckbox(setState, 'ai학과공지', '학과 공지(AI융합학부)'),
+                  _buildCheckbox(setState, '학사공지', '학사 공지'),
+                  _buildCheckbox(setState, '취업공지', '취업 공지'),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _loadNotices(); // ✅ 선택 후 필터 반영
+                    },
+                    child: const Text('해당 공지만 확인하기'),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCheckbox(StateSetter setState, String category, String label) {
+    return CheckboxListTile(
+      value: _selectedCategories.contains(category),
+      title: Text(label),
+      controlAffinity: ListTileControlAffinity.leading,
+      onChanged: (bool? checked) {
+        setState(() {
+          if (checked == true) {
+            _selectedCategories.add(category);
+          } else {
+            _selectedCategories.remove(category);
+          }
+        });
+      },
+    );
   }
 
   @override
@@ -86,7 +159,7 @@ class _MainPageState extends State<MainPage> {
                   ),
                   const SizedBox(width: 4),
                   GestureDetector(
-                    onTap: () => _navigateAndRefresh('/filter'),
+                    onTap: _showCategoryFilterDialog, // ✅ 여기를 수정
                     child: Image.asset(
                       'assets/colorfilter_icon.png',
                       width: 44,
@@ -121,3 +194,4 @@ class _MainPageState extends State<MainPage> {
     );
   }
 }
+
